@@ -1,0 +1,128 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-config
+data:                ## Note : in the mysql-url, "mysql-service" is kubenets svc
+  mysql-url: jdbc:mysql://mysql-service/my_schema?useSSL=false&serverTimezone=UTC    
+  mysql-database : my_schema
+  
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysql-secret
+type: Opaque
+data:
+  mysql-user: cm9vdA==
+  mysql-passwd: YmFzaGE=
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql-deployment
+  labels:
+    app: mysql
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+      - name: mysql
+        image: mysql:5.7
+        ports:
+        - containerPort: 3306
+        env:       
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef: 
+              name: mysql-secret
+              key: mysql-passwd              
+        - name: MYSQL_DATABASE
+          valueFrom:
+            configMapKeyRef: 
+              name: mysql-config
+              key: mysql-database
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-service
+spec:
+  selector:
+    app: mysql
+  ports:
+    - protocol: TCP
+      port: 3306
+      targetPort: 3306
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: springboot-deployment
+  labels:
+    app: springboot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: springboot
+  template:
+    metadata:
+      labels:
+        app: springboot
+    spec:
+      containers:
+      - image: bashacse/springboot:v1
+        name: service
+        # imagePullPolicy: Never
+        # resources: {}
+        ports:
+        - containerPort: 8080
+        env:
+        - name: SPRING_DATASOURCE_URL
+          valueFrom:
+            configMapKeyRef: 
+              name: mysql-config
+              key: mysql-url 
+        - name: SPRING_DATASOURCE_USERNAME
+          valueFrom:
+            secretKeyRef: 
+              name: mysql-secret
+              key: mysql-user                         
+        - name: SPRING_DATASOURCE_PASSWORD
+          valueFrom:
+            secretKeyRef: 
+              name: mysql-secret
+              key: mysql-passwd              
+        - name: MYSQL_DATABASE
+          valueFrom:
+            configMapKeyRef: 
+              name: mysql-config
+              key: mysql-database  
+        # - name: CORS_URLS
+        # ## Angular Frontend URL to allow for accessing the backend api url
+        #   value: http://172.17.0.2:30200  
+                  
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: springboot-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: springboot
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+      nodePort: 30100
+
+      
