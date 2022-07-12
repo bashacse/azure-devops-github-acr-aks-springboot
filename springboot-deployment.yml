@@ -79,7 +79,7 @@ spec:
         app: springboot
     spec:
       containers:
-      - image: bashacse/springboot:v1
+      - image: 1130118777.azurecr.io/bashacse/azure-devops-github-acr-aks-springboot:latest
         name: service
         # imagePullPolicy: Never
         # resources: {}
